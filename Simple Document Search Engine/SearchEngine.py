@@ -29,71 +29,69 @@ class SearchEngine:
                     self.index(filename, title, self.title_index)
                     self.index(filename, content, self.content_index)
 
-
     def preprocess_text(self, text):
-        # Convert text to lowercase and remove punctuation
         text = text.lower().translate(str.maketrans('', '', string.punctuation))
-        # Split text into words and remove stop words
         words = [word for word in text.split() if word not in self.stop_words]
         return words
 
     def index(self, filename, content, index):
-        # Preprocess title
         words = self.preprocess_text(content)
         for word in words:
             if word not in index:
                 index[word] = set()
             index[word].add(filename)
 
-    def display_index(self):
-        # Display the index for debugging purposes
-        for word, filenames in self.index.items():
-            print(f"{word}: {filenames}")
-
     def search(self, query, search_type="content"):
-        # Preprocess the search query
         words = self.preprocess_text(query)
-        # Find matching documents
         matching_documents = set()
 
-        if search_type == "title":
-            index = self.title_index
-        else:
-            index = self.content_index
-
+        index = self.title_index if search_type == "title" else self.content_index
         for word in words:
             if word in index:
                 matching_documents.update(index[word])
-        
-        # Display results
+
         results = []
         for filename in matching_documents:
             title = self.documents[filename]["title"]
-            # snippet = ' '.join(self.documents[filename]["content"].split()[:30])  # First 30 words as snippet
-            results.append((filename, title))
+            snippet = ' '.join(self.documents[filename]["content"].split()[:20])  # First 20 words as snippet
+            snippet+="........."
+            results.append((filename, title, snippet))
         return results
 
     def display_results(self, results):
-        # Display search results in a readable format
         if not results:
-            print("No matching documents found.")
+            print("\nNo matching documents found. Try different keywords.")
         else:
-            for filename, title in results:
-                print(f"Document: {filename} - Title: {title}\n")
+            print("\nSearch Results:")
+            for filename, title, snippet in results:
+                print(f"\nDocument: {filename}\nTitle: {title}\nSnippet: {snippet}\n")
 
-# Example usage:
+    def interactive_search(self):
+        while True:
+            # Clearing the Screen
+            os.system('cls')
+            print("\n--- Document Search Engine ---")
+            print("1. Search by Content")
+            print("2. Search by Title")
+            print("3. Exit")
+            choice = input("Enter your choice (1/2/3): ")
+
+            if choice == "3":
+                print("Exiting the search engine. Goodbye!")
+                break
+            elif choice in ["1", "2"]:
+                search_type = "content" if choice == "1" else "title"
+                query = input("Enter your search query: ").strip()
+                if query:
+                    results = self.search(query, search_type=search_type)
+                    self.display_results(results)
+                else:
+                    print("Query cannot be empty. Please enter a valid search term.")
+                input("Press any key to continue.......")
+            else:
+                print("Invalid choice. Please enter 1, 2, or 3.")
+
+# Example usage
 search_engine = SearchEngine(directory="Docs")
 search_engine.load_documents()
-# search_engine.display_index()
-
-
-# Run a search query
-query = "artificial intelligence"
-results = search_engine.search(query, search_type="content")
-search_engine.display_results(results)
-
-print("------------------")
-# search by title
-query = "Basics of"
-results = search_engine.search(query, search_type="title")
-search_engine.display_results(results)
+search_engine.interactive_search()
