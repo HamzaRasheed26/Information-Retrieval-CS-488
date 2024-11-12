@@ -2,7 +2,23 @@ import os
 import string
 
 class SearchEngine:
+    """
+    A simple document search engine that indexes and searches text files in a specified directory.
+
+    Attributes:
+        directory (str): Directory containing the text documents.
+        documents (dict): Stores document title and content.
+        content_index (dict): Index for content-based word search.
+        title_index (dict): Index for title-based word search.
+        stop_words (set): Common stop words to exclude from indexing.
+    """
     def __init__(self, directory):
+        """
+        Initializes the search engine with the directory to load documents from.
+
+        Args:
+            directory (str): Directory path containing text files to be indexed.
+        """
         self.directory = directory
         self.documents = {}  # Stores document title and content
         self.content_index = {}    # Index for content words
@@ -11,12 +27,14 @@ class SearchEngine:
             "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", 
             "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", 
             "that", "the", "their", "then", "there", "these", "they", "this", 
-            "to", "was", "will", "with"
+            "to", "was", "will", "with", "from"
         ])
 
     def load_documents(self):
-        current_directory = os.path.dirname(__file__)
-        file_path = os.path.join(current_directory, self.directory)
+        """
+        Loads documents from the directory, reading titles and contents, and indexes them by title and content.
+        """
+        file_path = os.path.join(os.path.dirname(__file__), self.directory)
         for filename in os.listdir(file_path):
             if filename.endswith(".txt"):
                 with open(os.path.join(file_path, filename), 'r', encoding='utf-8') as file:
@@ -32,11 +50,28 @@ class SearchEngine:
                     self.index(filename, content, self.content_index)
 
     def preprocess_text(self, text):
+        """
+        Converts text to lowercase, removes punctuation, and excludes stop words.
+
+        Args:
+            text (str): The text to be processed.
+        
+        Returns:
+            list: List of processed words.
+        """
         text = text.lower().translate(str.maketrans('', '', string.punctuation))
         words = [word for word in text.split() if word not in self.stop_words]
         return words
 
     def index(self, filename, content, index):
+        """
+        Indexes words from the content, storing their frequencies.
+
+        Args:
+            filename (str): The document filename.
+            content (str): The document content.
+            index (dict): The index to update (title or content index).
+        """
         words = self.preprocess_text(content)
         word_counts = {}
         
@@ -49,6 +84,16 @@ class SearchEngine:
             index[word][filename] = count
 
     def search(self, query, search_type="content"):
+        """
+        Searches for the query in the specified index and ranks results by relevance score.
+
+        Args:
+            query (str): The search query.
+            search_type (str): Either 'content' or 'title', determining the search index.
+
+        Returns:
+            list: Sorted list of matching documents with filenames, titles, snippets, and scores.
+        """
         words = self.preprocess_text(query)
         matching_documents = {}  # Dictionary to store document scores
 
@@ -72,6 +117,12 @@ class SearchEngine:
         return results
 
     def display_results(self, results):
+        """
+        Displays search results in a user-friendly format with relevance scores.
+
+        Args:
+            results (list): List of tuples with filename, title, snippet, and score.
+        """
         if not results:
             print("\nNo matching documents found. Try different keywords.")
         else:
@@ -79,7 +130,10 @@ class SearchEngine:
             for filename, title, snippet, score in results:
                 print(f"\nDocument: {filename}\nTitle: {title}\nSnippet: {snippet}\nRelevance Score: {score}\n")
 
-    def interactive_search(self):
+    def searchUI(self):
+        """
+        Provides an interactive command-line menu for searching by content or title.
+        """
         while True:
             # Clearing the Screen
             os.system('cls')
@@ -108,4 +162,4 @@ class SearchEngine:
 if __name__ == '__main__':
     search_engine = SearchEngine(directory="Docs")
     search_engine.load_documents()
-    search_engine.interactive_search()
+    search_engine.searchUI()
