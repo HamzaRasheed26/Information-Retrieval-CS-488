@@ -1,5 +1,6 @@
 import os
 import string
+from Dictionary import CustomDictionary
 
 class SearchEngine:
     """
@@ -20,15 +21,15 @@ class SearchEngine:
             directory (str): Directory path containing text files to be indexed.
         """
         self.directory = directory
-        self.documents = {}  # Stores document title and content
-        self.content_index = {}    # Index for content words
-        self.title_index = {}      # Index for title words
+        self.documents = CustomDictionary()  # Stores document title and content
+        self.content_index = CustomDictionary()    # Index for content words
+        self.title_index = CustomDictionary()      # Index for title words
         self.stop_words = set([
             "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", 
             "in", "into", "is", "it", "no", "not", "of", "on", "or", "such", 
             "that", "the", "their", "then", "there", "these", "they", "this", 
             "to", "was", "will", "with", "from"
-        ])
+        ]) # Stop words to reomve
 
     def load_documents(self):
         """
@@ -36,15 +37,13 @@ class SearchEngine:
         """
         file_path = os.path.join(os.path.dirname(__file__), self.directory)
         for filename in os.listdir(file_path):
-            if filename.endswith(".txt"):
+            if filename.endswith(".txt"): # Reading .txt files
                 with open(os.path.join(file_path, filename), 'r', encoding='utf-8') as file:
+                    # Arranging the text in the file
                     doc = file.read().split("\n", 1)
                     title = doc[0].replace("Title: ", "")
                     content = doc[1].replace("Content: ", "")
-                    self.documents[filename] = {
-                        "title": title,
-                        "content": content
-                    }
+                    self.documents.insert(filename, {"title": title, "content": content})
                     # Index both title and content
                     self.index(filename, title, self.title_index)
                     self.index(filename, content, self.content_index)
@@ -75,13 +74,18 @@ class SearchEngine:
         words = self.preprocess_text(content)
         word_counts = {}
         
+        # Count how many times each word occur in one file
         for word in words:
             word_counts[word] = word_counts.get(word, 0) + 1
 
+        # Creating the index word by word with thier filename and count
         for word, count in word_counts.items():
-            if word not in index:
-                index[word] = {}
-            index[word][filename] = count
+            try:
+                existing = index.get(word)
+            except KeyError:
+                existing = CustomDictionary()
+                index.insert(word, existing)
+            existing.insert(filename, count)
 
     def search(self, query, search_type="content"):
         """
@@ -95,24 +99,41 @@ class SearchEngine:
             list: Sorted list of matching documents with filenames, titles, snippets, and scores.
         """
         words = self.preprocess_text(query)
-        matching_documents = {}  # Dictionary to store document scores
+        matching_documents = CustomDictionary() # Dictionary to store document scores
 
+        # Selecting the index base on search type
         index = self.title_index if search_type == "title" else self.content_index
+        # for word in words:
+        #     if word in index:
+        #         # Finding the word in index and getting the filenames and counts in which it exist
+        #         for filename, freq in index[word].items(): 
+        #             if filename not in matching_documents:
+        #                 matching_documents[filename] = 0
+        #             matching_documents[filename] += freq # Caculating the relevance score
+
         for word in words:
-            if word in index:
-                for filename, freq in index[word].items():
-                    if filename not in matching_documents:
-                        matching_documents[filename] = 0
-                    matching_documents[filename] += freq
+            try:
+                docs_with_word = index.get(word)
+                for filename, freq in docs_with_word.items():  # Use items() to get key-value pairs
+                    try:
+                        score = matching_documents.get(filename) + freq
+                        matching_documents.insert(filename, score)
+                    except KeyError:
+                        matching_documents.insert(filename, freq)
+            except KeyError:
+                continue
 
         # Sort documents by the relevance score (higher score first)
-        sorted_results = sorted(matching_documents.items(), key=lambda item: item[1], reverse=True)
+        sorted_results = sorted(
+            [(filename, score) for filename, score in matching_documents.items() if filename],
+            key=lambda item: item[1], reverse=True
+        )
         
         results = []
         for filename, score in sorted_results:
-            title = self.documents[filename]["title"]
-            snippet = ' '.join(self.documents[filename]["content"].split()[:20])  # First 20 words as snippet
-            snippet+="........."
+            doc = self.documents.get(filename)
+            title = doc["title"]
+            snippet = ' '.join(doc["content"].split()[:15]) + "........."  # First 15 words as snippet
             results.append((filename, title, snippet, score))
         return results
 
@@ -127,8 +148,12 @@ class SearchEngine:
             print("\nNo matching documents found. Try different keywords.")
         else:
             print("\nSearch Results:")
+            print(f"Total Documents found: {len(results)}")
+            print("=======================================================================")
             for filename, title, snippet, score in results:
                 print(f"\nDocument: {filename}\nTitle: {title}\nSnippet: {snippet}\nRelevance Score: {score}\n")
+                print("=======================================================================")
+    
 
     def searchUI(self):
         """
