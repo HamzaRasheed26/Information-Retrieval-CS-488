@@ -1,5 +1,6 @@
 import os
 import string
+from nltk.stem import WordNetLemmatizer
 from Dictionary import CustomDictionary
 
 class SearchEngine:
@@ -48,6 +49,37 @@ class SearchEngine:
                     self.index(filename, title, self.title_index)
                     self.index(filename, content, self.content_index)
 
+    def filter_nouns(self, words):
+        """
+        Filters words and returns only those that likely represent nouns.
+        
+        Args:
+            words (list): List of words to filter.
+        
+        Returns:
+            list: List of words that are likely nouns.
+        """
+        noun_suffixes = {"tion", "ness", "ity", "ment", "er", "ism", "age", "ship", "ence", "ance"}
+        articles = {"a", "an", "the"}
+        
+        nouns = []
+        for i, word in enumerate(words):
+            # Rule 1: Check if the word follows an article
+            if i > 0 and words[i - 1].lower() in articles:
+                nouns.append(word)
+                continue
+
+            # Rule 2: Check for capitalization (assuming proper nouns at start of sentence excluded)
+            if word[0].isupper():
+                nouns.append(word)
+                continue
+
+            # Rule 3: Check for common noun suffixes
+            if any(word.endswith(suffix) for suffix in noun_suffixes):
+                nouns.append(word)
+
+        return nouns
+
     def preprocess_text(self, text):
         """
         Converts text to lowercase, removes punctuation, and excludes stop words.
@@ -58,8 +90,26 @@ class SearchEngine:
         Returns:
             list: List of processed words.
         """
+        lemmatizer = WordNetLemmatizer()
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        all_words = text.split()
+        nouns = [lemmatizer.lemmatize(noun.lower()) for noun in self.filter_nouns(all_words)]
+        words = [lemmatizer.lemmatize(word.lower()) for word in all_words if word.lower() not in self.stop_words]
+        return words + nouns
+
+    def preprocess_query(self, text):
+        """
+        Converts text to lowercase, removes punctuation, and excludes stop words.
+
+        Args:
+            text (str): The text to be processed.
+        
+        Returns:
+            list: List of processed words.
+        """
+        lemmatizer = WordNetLemmatizer()
         text = text.lower().translate(str.maketrans('', '', string.punctuation))
-        words = [word for word in text.split() if word not in self.stop_words]
+        words = [lemmatizer.lemmatize(word) for word in text.split() if word not in self.stop_words]
         return words
 
     def index(self, filename, content, index):
@@ -98,19 +148,11 @@ class SearchEngine:
         Returns:
             list: Sorted list of matching documents with filenames, titles, snippets, and scores.
         """
-        words = self.preprocess_text(query)
+        words = self.preprocess_query(query)
         matching_documents = CustomDictionary() # Dictionary to store document scores
 
         # Selecting the index base on search type
         index = self.title_index if search_type == "title" else self.content_index
-        # for word in words:
-        #     if word in index:
-        #         # Finding the word in index and getting the filenames and counts in which it exist
-        #         for filename, freq in index[word].items(): 
-        #             if filename not in matching_documents:
-        #                 matching_documents[filename] = 0
-        #             matching_documents[filename] += freq # Caculating the relevance score
-
         for word in words:
             try:
                 docs_with_word = index.get(word)
